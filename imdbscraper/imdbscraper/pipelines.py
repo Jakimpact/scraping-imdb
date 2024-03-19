@@ -67,18 +67,37 @@ class MoviesPostgresPipeline:
 
     def process_item(self, item, spider):
 
-        insert_statement = """
+        insert_statement = """=
             INSERT INTO movies (
-                url, title, original_title, year, public, length, imdb_rating,
-                num_imdb_raters, themes, synopsis, directors, writers, stars,
-                metascore_rating, num_user_reviews, num_critic_reviews,
-                num_oscar_nominations, num_wins, num_nominations, release_date,
-                country, original_language, production_companies, budget,
+                url, 
+                title, 
+                original_title, 
+                year, 
+                public, 
+                length, 
+                imdb_rating,
+                num_imdb_raters, 
+                themes, 
+                synopsis, 
+                directors, 
+                writers, 
+                stars,
+                metascore_rating, 
+                num_user_reviews, 
+                num_critic_reviews,
+                num_oscar_nominations, 
+                num_wins, 
+                num_nominations, 
+                release_date,
+                country, 
+                original_language, 
+                production_companies, 
+                budget,
                 ww_box_office
             )
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
 
@@ -94,12 +113,110 @@ class MoviesPostgresPipeline:
         )
         
         try:
-            self.cursor.execute(insert_statement, item_values)
+            self.cur.execute(insert_statement, item_values)
             self.connection.commit()
         except Exception as e:
             self.connection.rollback()
-            # raise DropItem(f"Failed to insert item into database: {e}")
         return item
 
+    def close_spider(self, item, spider):
+        
+        self.cur.close()
+        self.connection.close()
 
+
+class ShowPostgresPipeline:
+
+    def __init__(self):
+
+        hostname = os.getenv("HOSTNAME")
+        database = os.getenv("DATABASE")
+        user = os.getenv("USER")
+        password = os.getenv("PASSWORD")
+
+        self.connection = psycopg2.connect(host=hostname, user=user, password=password, dbname=database)
+        self.cur = self.connection.cursor()
+
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS shows(
+            id serial PRIMARY KEY,
+            url VARCHAR(255),
+            title TEXT,
+            years TEXT[],
+            public VARCHAR(255), 
+            episode_length TEXT,
+            imdb_rating NUMERIC,
+            num_imdb_raters INTEGER,
+            themes TEXT,
+            synopsis TEXT,
+            creators TEXT[],
+            stars TEXT[],
+            num_user_reviews INTEGER,
+            num_critic_reviews INTEGER,
+            awards INTEGER,
+            num_wins INTEGER,
+            num_nominations INTEGER,
+            num_seasons INTEGER,
+            num_episodes INTEGER,
+            release_date DATE,
+            country TEXT,
+            original_language TEXT,
+            production_companies TEXT[],
+        )
+        """)
+
+    def process_item(self, item, spider):
+
+        insert_statement = """=
+            INSERT INTO movies (
+                url, 
+                title, 
+                years, 
+                public, 
+                episode_length, 
+                imdb_rating,
+                num_imdb_raters, 
+                themes, 
+                synopsis, 
+                creators,  
+                stars,
+                num_user_reviews, 
+                num_critic_reviews,
+                awards, 
+                num_wins, 
+                num_nominations,
+                num_seasons,
+                num_episodes,
+                release_date,
+                country, 
+                original_language, 
+                production_companies, 
+            )
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+
+        item_values = (
+            item['url'], item['title'], item['years'],
+            item['public'], item['episode_length'], item['imdb_rating'], item['num_imdb_raters'],
+            item['themes'], item['synopsis'], item['creators'],
+            item['stars'], item['num_user_reviews'],
+            item['num_critic_reviews'], item['awards'],
+            item['num_wins'], item['num_nominations'], 
+            item['num_seasons'], item['num_episodes'], item['release_date'],
+            item['country'], item['original_language'], item['production_companies']
+        )
+        
+        try:
+            self.cur.execute(insert_statement, item_values)
+            self.connection.commit()
+        except Exception as e:
+            self.connection.rollback()
         return item
+
+    def close_spider(self, item, spider):
+        
+        self.cur.close()
+        self.connection.close()
