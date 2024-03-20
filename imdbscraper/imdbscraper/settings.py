@@ -7,6 +7,17 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+import os
+
+from dotenv import dotenv_values
+
+ENVS = dotenv_values(".env")
+
+HOSTNAME = ENVS["HOSTNAME"]
+DATABASE = ENVS["DATABASE"]
+USER = ENVS["USER"]
+PASSWORD = ENVS["PASSWORD"]
+
 BOT_NAME = "imdbscraper"
 
 SPIDER_MODULES = ["imdbscraper.spiders"]

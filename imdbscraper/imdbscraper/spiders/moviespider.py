@@ -12,6 +12,10 @@ class MoviespiderSpider(scrapy.Spider):
                 'format': 'csv',
                 'overwrite': True,
             }
+        },
+        'ITEM_PIPELINES': {
+            'imdbscraper.pipelines.MovieCleaningPipeline': 600,
+            'imdbscraper.pipelines.MoviePostgresPipeline': 700,
         }
     }
 

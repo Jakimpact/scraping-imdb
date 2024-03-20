@@ -12,6 +12,10 @@ class ShowspiderSpider(scrapy.Spider):
                 'format': 'csv',
                 'overwrite': True,
             }
+        },
+        'ITEM_PIPELINES': {
+            'imdbscraper.pipelines.ShowCleaningPipeline': 600,
+            'imdbscraper.pipelines.ShowPostgresPipeline': 700,
         }
     }
 
@@ -55,7 +59,7 @@ class ShowspiderSpider(scrapy.Spider):
         show_item["awards"] = content.xpath(".//li[@data-testid='award_information']/a[1]/text()").get()
         show_item["num_wins"] = content.xpath(".//li[@data-testid='award_information']/div//text()").get()
         show_item["num_nominations"] = content.xpath(".//li[@data-testid='award_information']/div//text()").get()
-        show_item["num_seasons"] = content.xpath(".//select[@id='browse-episodes-season']/@aria-label").get()
+        show_item["num_seasons"] = content.xpath(".//div[@data-testid='episodes-browse-episodes']/div[2]/*[2]//text()").get()
         show_item["num_episodes"] = content.xpath(".//div[@data-testid='episodes-header']//span[last()]/text()").get()
         show_item["release_date"] = content.xpath(".//li[@data-testid='title-details-releasedate']/div[last()]//text()").get()
         show_item["country"] = content.xpath(".//li[@data-testid='title-details-origin']/div[last()]//text()").get()

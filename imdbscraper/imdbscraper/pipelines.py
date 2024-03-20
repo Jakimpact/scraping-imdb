@@ -6,31 +6,71 @@
 
 # useful for handling different item types with a single interface
 
-import os
-from dotenv import load_dotenv
+import re
+
 import psycopg2
 
+from imdbscraper.settings import HOSTNAME, PASSWORD, USER, DATABASE
 from itemadapter import ItemAdapter
 
 
-load_dotenv()
+class MovieCleaningPipeline:
 
-
-class ImdbscraperPipeline:
     def process_item(self, item, spider):
+
+        adapter = ItemAdapter(item)
+
+        # Transform url 
+        value = adapter.get("url")
+
+        # Transform length in minutes
+        value = adapter.get("length")
+        if value:
+            hours, minutes = map(int, value.replace('h', '').replace('m', '').split())
+            total_min = hours * 60 + minutes
+            adapter["length"] = total_min
+
+        # Transform num raters, num user reviews, num critic reviews in int
+        reviews = ["num_imdb_raters", "num_user_reviews", "num_critic_reviews"]
+        for review in reviews:
+            value = adapter.get(review)
+            if value:
+                if 'K' in value:
+                    value = int(float(value.replace('K', '')) * 1000)
+                elif 'M' in value:
+                    value = int(float(value.replace('M', '')) * 1000000)
+                else:
+                    value = int(value)
+                adapter[review] = value        
+
+        # Separate the num of wins and num of nominations
+        value = adapter.get("num_wins")
+        if value:
+            matches = re.findall(r'(\d+)\s+wins?\s+&\s+(\d+)\s+nominations?\s+total', value)
+            if matches:
+                num_wins, num_nominations = int(matches[0][0]), int(matches[0][1])
+            else: 
+                num_wins, num_nominations = None, None
+            adapter["num_wins"] = num_wins
+            adapter["num_nominations"] = num_nominations
+
+        # Remove what is inside the () for the release date
+        value = adapter.get("release_date")
+        if value:
+            value = re.sub(r'\s*\(.*\)', '', value)
+            adapter["release_date"] = value
+
         return item
 
 
-class MoviesPostgresPipeline:
+class ShowCleaningPipeline:
+    pass
+
+class MoviePostgresPipeline:
 
     def __init__(self):
 
-        hostname = os.getenv("HOSTNAME")
-        database = os.getenv("DATABASE")
-        user = os.getenv("USER")
-        password = os.getenv("PASSWORD")
-
-        self.connection = psycopg2.connect(host=hostname, user=user, password=password, dbname=database)
+        self.connection = psycopg2.connect(host=HOSTNAME, user=USER, password=PASSWORD, dbname=DATABASE)
         self.cur = self.connection.cursor()
 
         self.cur.execute("""
@@ -41,33 +81,32 @@ class MoviesPostgresPipeline:
             original_title TEXT,
             year INTEGER,
             public VARCHAR(255),
-                         
-            length TEXT,
-            imdb_rating NUMERIC,
-            num_imdb_raters INTEGER,
-            themes TEXT,
+            length INTEGER,
+            imdb_rating DECIMAL,
+            num_imdb_raters INTEGER,            
+            themes TEXT[],
             synopsis TEXT,
             directors TEXT[],
             writers TEXT[],
             stars TEXT[],
-            metascore_rating NUMERIC,
+            metascore_rating INTEGER,
             num_user_reviews INTEGER,
             num_critic_reviews INTEGER,
-            num_oscar_nominations INTEGER,
+            num_oscar_nominations TEXT,
             num_wins INTEGER,
             num_nominations INTEGER,
             release_date DATE,
             country TEXT,
             original_language TEXT,
             production_companies TEXT[],
-            budget NUMERIC,
-            ww_box_office NUMERIC
+            budget TEXT,
+            ww_box_office TEXT
         )
         """)
 
     def process_item(self, item, spider):
 
-        insert_statement = """=
+        insert_statement = """
             INSERT INTO movies (
                 url, 
                 title, 
@@ -119,7 +158,7 @@ class MoviesPostgresPipeline:
             self.connection.rollback()
         return item
 
-    def close_spider(self, item, spider):
+    def close_spider(self, spider):
         
         self.cur.close()
         self.connection.close()
@@ -129,12 +168,7 @@ class ShowPostgresPipeline:
 
     def __init__(self):
 
-        hostname = os.getenv("HOSTNAME")
-        database = os.getenv("DATABASE")
-        user = os.getenv("USER")
-        password = os.getenv("PASSWORD")
-
-        self.connection = psycopg2.connect(host=hostname, user=user, password=password, dbname=database)
+        self.connection = psycopg2.connect(host=HOSTNAME, user=USER, password=PASSWORD, dbname=DATABASE)
         self.cur = self.connection.cursor()
 
         self.cur.execute("""
